@@ -1,5 +1,10 @@
 package mas.sfdc.orgTrack;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.WritableByteChannel;
+
 public class CopiedFromDocumentation {
 
     // binding for the Enterprise WSDL used for login() call
