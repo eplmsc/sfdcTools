@@ -2,6 +2,8 @@ package mas.sfdc.orgTrack;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -11,6 +13,14 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+
+import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.api.errors.GitAPIException;
+import org.eclipse.jgit.api.errors.NoFilepatternException;
+import org.eclipse.jgit.lib.Repository;
+import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
 
 import com.sforce.soap.metadata.APIAccessLevel;
 import com.sforce.soap.metadata.AsyncRequestState;
@@ -28,8 +38,10 @@ import com.sforce.ws.ConnectionException;
 
 public class MetaDataGetter {
 
+    private static final int BUFFER_SIZE = 4096;
 	public static final long ONE_SECOND = 1000;
 	public static final int MAX_POLL_REQUEST = 7;
+	private static final String OUTPUT_DIRECTORY = null;
 
 	public static void main(String[] args) {
 		CliFacade cliFacade = new CliFacade();
@@ -116,6 +128,7 @@ public class MetaDataGetter {
 						+ asyncResult.getMessage());
 			}
 
+			System.out.println("Retrieving result");
 			RetrieveResult result = metadataConnection
 					.checkRetrieveStatus(asyncResult.getId());
 
@@ -132,21 +145,10 @@ public class MetaDataGetter {
 
 			// Write the zip to the file system
 			System.out.println("Writing results to zip file");
-			ByteArrayInputStream bais = new ByteArrayInputStream(
-					result.getZipFile());
-			File resultsFile = new File("SFDCTools.retrieveResults.zip");
-			FileOutputStream os = new FileOutputStream(resultsFile);
-			try {
-				ReadableByteChannel src = Channels.newChannel(bais);
-				FileChannel dest = os.getChannel();
-				copy(src, dest);
-
-				System.out.println("Results written to "
-						+ resultsFile.getAbsolutePath());
-			} finally {
-				os.close();
-			}
-
+			saveRetrieveResult(result);
+			unzipRetrieveResult(result, "c:\\data\\sletmig\\sfdctool\\test");
+			Repository repo = obtainLocalGitRepo("c:\\data\\sletmig\\sfdctool\\git");
+			addAndCommitGit(repo, "c:\\data\\sletmig\\sfdctool\\test");
 		} catch (ConnectionException e) {
 			e.printStackTrace();
 			System.exit(1);
@@ -171,6 +173,115 @@ public class MetaDataGetter {
 				dest.write(buffer);
 			}
 			buffer.clear();
+		}
+	}
+
+	private static void saveRetrieveResult(RetrieveResult result) {
+		ByteArrayInputStream bais = new ByteArrayInputStream(result.getZipFile());
+		File resultFile = new File("SFDCTools.retrieveResults.zip");
+		try {
+			FileOutputStream os = new FileOutputStream(resultFile);
+			try {
+				ReadableByteChannel src = Channels.newChannel(bais);
+				FileChannel dest = os.getChannel();
+				copy(src, dest);
+				System.out.println("Result written to "	+ resultFile.getAbsolutePath());
+			} finally {
+				os.close();
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			System.exit(1);
+		}
+	}
+	
+	private static void addAndCommitGit(Repository repo, String outputDirectory) {
+		Git git = new Git(repo);
+		try {
+			git.add().addFilepattern(outputDirectory).call();
+			git.commit().setMessage("test message").call();
+		} catch (NoFilepatternException e) {
+			e.printStackTrace();
+			System.exit(1);
+		} catch (GitAPIException e) {
+			e.printStackTrace();
+			System.exit(1);
+		}		
+	}
+
+	private static Repository obtainLocalGitRepo(String outputDirectory) {
+		Repository result = null;
+		System.out.println("Initiallizing Git Repository...");
+		FileRepositoryBuilder builder = new FileRepositoryBuilder();
+		try {
+			result = builder.setGitDir(new File(outputDirectory))
+			  .readEnvironment() // scan environment GIT_* variables
+			  .build();
+			if (builder.getGitDir() == null) {
+				result.create(true);
+			}
+			System.out.println("repo directory is "+result.getDirectory().getAbsolutePath());			
+		} catch (IOException e) {
+			e.printStackTrace();
+			System.exit(1);
+		}		
+		System.out.println("...done");
+		return result;
+	}
+	
+	private static void unzipRetrieveResult(RetrieveResult result,
+			String outputDirectory) {
+
+		System.out.println("unzipping retrieved result...");
+
+		byte[] buffer = new byte[BUFFER_SIZE];
+
+		try {
+
+			// create output directory (including parents) if it is not already
+			// there
+			File folder = new File(outputDirectory);
+			if (!folder.exists()) {
+				folder.mkdirs();
+			}
+
+			// get the zip file content
+			ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(
+					result.getZipFile()));
+			// get the zipped file list entry
+			ZipEntry ze = zis.getNextEntry();
+
+			while (ze != null) {
+
+				String fileName = ze.getName();
+				File newFile = new File(outputDirectory + File.separator
+						+ fileName);
+
+				System.out.println("unzipping : " + newFile.getAbsoluteFile());
+
+				// create all non exists folders
+				// else you will hit FileNotFoundException for compressed folder
+				new File(newFile.getParent()).mkdirs();
+
+				FileOutputStream fos = new FileOutputStream(newFile);
+
+				int len;
+				while ((len = zis.read(buffer)) > 0) {
+					fos.write(buffer, 0, len);
+				}
+
+				fos.close();
+				ze = zis.getNextEntry();
+			}
+
+			zis.closeEntry();
+			zis.close();
+
+			System.out.println("...done");
+
+		} catch (IOException e) {
+			e.printStackTrace();
+			System.exit(1);
 		}
 	}
 

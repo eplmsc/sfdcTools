@@ -20,5 +20,10 @@
   		<artifactId>force-partner-api</artifactId>
   		<version>28.0.0</version>
   	</dependency>
+  	<dependency>
+  		<groupId>org.eclipse.jgit</groupId>
+  		<artifactId>org.eclipse.jgit</artifactId>
+  		<version>3.0.0.201306101825-r</version>
+  	</dependency>
   </dependencies>
 </project>
