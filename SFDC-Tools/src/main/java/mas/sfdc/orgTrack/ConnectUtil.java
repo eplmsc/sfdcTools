@@ -8,23 +8,32 @@ import com.sforce.ws.ConnectorConfig;
 
 public class ConnectUtil {
 
-	public static final String SFDC_AUTHPATH = "/services/Soap/u/28.0";
-	public static final double API_VERSION = 28.0;
+	private static final String DEFAULT_API_VERSION = "28.0";
 
 	private final String userId;
 	private final String token;
 	private final String password;
 	private final String authenticationUrl;
+	private final double apiVersion;
+	private final String sfdcAuthPath;
 
 	private MetadataConnection connection;
 
 	public ConnectUtil(String authenticationUrl, String userId, String token,
 			String password) {
+		this(authenticationUrl, userId, token, password, DEFAULT_API_VERSION);
+	}
+
+	public ConnectUtil(String authenticationUrl, String userId, String token,
+			String password, String apiVersion) {
 		super();
 		this.authenticationUrl = authenticationUrl;
 		this.userId = userId;
 		this.token = token;
 		this.password = password;
+		this.apiVersion = Double.parseDouble(apiVersion);
+		
+		this.sfdcAuthPath = "/services/Soap/u/"+apiVersion;
 	}
 
 	public void connect() {
@@ -36,7 +45,7 @@ public class ConnectUtil {
 				: this.password;
 
 		ConnectorConfig partnerConfig = new ConnectorConfig();
-		partnerConfig.setAuthEndpoint(this.authenticationUrl + SFDC_AUTHPATH);
+		partnerConfig.setAuthEndpoint(this.authenticationUrl + this.sfdcAuthPath);
 		partnerConfig.setUsername(this.userId);
 		partnerConfig.setPassword(fullPassword);
 
@@ -76,5 +85,13 @@ public class ConnectUtil {
 
 	public MetadataConnection getConnection() {
 		return connection;
+	}
+
+	public double getApiVersion() {
+		return apiVersion;
+	}
+
+	public String getSfdcAuthPath() {
+		return sfdcAuthPath;
 	}
 }

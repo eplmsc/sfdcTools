@@ -2,8 +2,6 @@ package mas.sfdc.orgTrack;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -11,8 +9,6 @@ import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -27,8 +23,6 @@ import com.sforce.soap.metadata.APIAccessLevel;
 import com.sforce.soap.metadata.AsyncRequestState;
 import com.sforce.soap.metadata.AsyncResult;
 import com.sforce.soap.metadata.DescribeMetadataResult;
-import com.sforce.soap.metadata.FileProperties;
-import com.sforce.soap.metadata.ListMetadataQuery;
 import com.sforce.soap.metadata.MetadataConnection;
 import com.sforce.soap.metadata.Package;
 import com.sforce.soap.metadata.PackageTypeMembers;
@@ -42,124 +36,130 @@ public class MetaDataGetter {
     private static final int BUFFER_SIZE = 4096;
 	public static final long ONE_SECOND = 1000;
 	public static final int MAX_POLL_REQUEST = 7;
-	private static final String OUTPUT_DIRECTORY = null;
-
-	public static void main(String[] args) {
-		CliFacade cliFacade = new CliFacade();
-		cliFacade.getCommandLine(args);
-
+	
+	public static RetrieveResult retrieveAllOrgMetaData(String authenticationUrl, String userId, String token,
+			String password) {
 		ConnectUtil connectUtil = new ConnectUtil(
-				cliFacade.getAuthenticationUrl(), cliFacade.getUserId(),
-				cliFacade.getToken(), cliFacade.getPassword());
+				authenticationUrl, userId,
+				token, password);
 		connectUtil.connect();
 
-		// ReportUtil.outputQualifiedPackageFormat(getAllMetadataProperties(connectUtil.getConnection()));
-		//
-		// System.out.println();System.out.println();
-		//
-		// ReportUtil.outputNonSpecificPackageFormat(describeMetadata(connectUtil.getConnection()));
+		RetrieveRequest request = getRetrieveEverythingRequest(connectUtil);
+		RetrieveResult result = requestAndPollForMetadata(connectUtil, request);
 
-		uglyMethodInNeedOfRefactoring(connectUtil.getConnection());
+		return result;
 	}
+	
+	
+//	static public DescribeMetadataResult describeMetadata(
+//			MetadataConnection metadataConnection) {
+//		System.out.println("Getting metadata description...");
+//		DescribeMetadataResult dmr = null;
+//		try {
+//			dmr = metadataConnection.describeMetadata(ConnectUtil.API_VERSION);
+//		} catch (ConnectionException e) {
+//			e.printStackTrace();
+//			System.exit(1);
+//		}
+//		return dmr;
+//	}
 
-	static public DescribeMetadataResult describeMetadata(
-			MetadataConnection metadataConnection) {
-		System.out.println("Getting metadata description...");
+	public static RetrieveRequest getRetrieveEverythingRequest(ConnectUtil connectUtil) {
+
+		System.out.println("Getting RetreiveRequest for all metadata...");
+		MetadataConnection mc = connectUtil.getConnection();
 		DescribeMetadataResult dmr = null;
 		try {
-			dmr = metadataConnection.describeMetadata(ConnectUtil.API_VERSION);
+			dmr = mc.describeMetadata(connectUtil.getApiVersion());
 		} catch (ConnectionException e) {
 			e.printStackTrace();
 			System.exit(1);
 		}
-		return dmr;
+
+		final String[] asterisk = new String[] { "*" };
+		PackageTypeMembers[] ptmArray = new PackageTypeMembers[dmr
+				.getMetadataObjects().length];
+		Package unpackaged = new Package();
+		unpackaged.setVersion(Double.toString(connectUtil.getApiVersion()));
+		unpackaged.setApiAccessLevel(APIAccessLevel.Unrestricted);
+		unpackaged.setTypes(ptmArray);
+
+		for (int i = 0; i < dmr.getMetadataObjects().length; i++) {
+			if (!"InstalledPackage".equalsIgnoreCase(dmr.getMetadataObjects()[i].getXmlName())) {
+				ptmArray[i] = new PackageTypeMembers();
+				ptmArray[i].setMembers(asterisk);
+				ptmArray[i].setName(dmr.getMetadataObjects()[i].getXmlName());
+			}
+		}
+
+		RetrieveRequest request = new RetrieveRequest();
+		request.setUnpackaged(unpackaged);
+		request.setApiVersion(connectUtil.getApiVersion());
+		
+		return request;
 	}
 
-	static public void uglyMethodInNeedOfRefactoring(
-			MetadataConnection metadataConnection) {
-		System.out.println("Getting metadata zip-file...");
-		DescribeMetadataResult dmr = null;
+	public static RetrieveResult requestAndPollForMetadata(
+			ConnectUtil connectUtil, RetrieveRequest request) {
+
+		System.out.println("Issuing retrieve request...");
+		MetadataConnection mc = connectUtil.getConnection();
+
+		RetrieveResult result = null;
+		AsyncResult asyncResult;
 		try {
-			dmr = metadataConnection.describeMetadata(ConnectUtil.API_VERSION);
-
-			final String[] asterisk = new String[] { "*" };
-			PackageTypeMembers[] ptmArray = new PackageTypeMembers[dmr
-					.getMetadataObjects().length];
-			Package unpackaged = new Package();
-			unpackaged.setVersion(Double.toString(ConnectUtil.API_VERSION));
-			unpackaged.setApiAccessLevel(APIAccessLevel.Unrestricted);
-			unpackaged.setTypes(ptmArray);
-
-			for (int i = 0; i < dmr.getMetadataObjects().length; i++) {
-				if (!"InstalledPackage".equalsIgnoreCase(dmr.getMetadataObjects()[i].getXmlName())) {
-					ptmArray[i] = new PackageTypeMembers();
-					ptmArray[i].setMembers(asterisk);
-					ptmArray[i].setName(dmr.getMetadataObjects()[i].getXmlName());
-				}
-			}
-
-			RetrieveRequest request = new RetrieveRequest();
-			request.setUnpackaged(unpackaged);
-			request.setApiVersion(ConnectUtil.API_VERSION);
-
-			System.out.println("Issuing retrieve request...");
-			AsyncResult asyncResult = metadataConnection.retrieve(request);
+			asyncResult = mc.retrieve(request);
 
 			// Wait for the retrieve to complete
 			int poll = 0;
 			long waitTimeMilliSecs = ONE_SECOND;
 			while (!asyncResult.isDone()) {
-				System.out.println("Polling result again in "+waitTimeMilliSecs/1000 +" seconds");
-				Thread.sleep(waitTimeMilliSecs);
+				System.out.println("Polling result again in "
+						+ waitTimeMilliSecs / 1000 + " seconds");
+				try {
+					Thread.sleep(waitTimeMilliSecs);
+				} catch (InterruptedException ignored) {
+				}
 				// double the wait time for the next iteration
 				waitTimeMilliSecs *= 2;
 				if (poll++ > MAX_POLL_REQUEST) {
-					throw new Exception(
-							"Request timed out.  If this is a large set "
+					System.out
+							.println("Request timed out.  If this is a large set "
 									+ "of metadata components, check that the time allowed "
 									+ "by MAX_NUM_POLL_REQUESTS is sufficient.");
+					System.exit(1);
 				}
-				asyncResult = metadataConnection
+				asyncResult = mc
 						.checkStatus(new String[] { asyncResult.getId() })[0];
 				System.out.println("Status is: " + asyncResult.getState());
 			}
 
 			if (asyncResult.getState() != AsyncRequestState.Completed) {
-				throw new Exception(asyncResult.getStatusCode() + " msg: "
+				System.out.println("AsyncResult has unexpected statusCode="
 						+ asyncResult.getMessage());
 			}
 
 			System.out.println("Retrieving result");
-			RetrieveResult result = metadataConnection
-					.checkRetrieveStatus(asyncResult.getId());
-
-			// Print out any warning messages
-			StringBuilder buf = new StringBuilder();
-			if (result.getMessages() != null) {
-				for (RetrieveMessage rm : result.getMessages()) {
-					buf.append(rm.getFileName() + " - " + rm.getProblem());
-				}
-			}
-			if (buf.length() > 0) {
-				System.out.println("Retrieve warnings:\n" + buf);
-			}
-
-			// Write the zip to the file system
-			System.out.println("Writing results to zip file");
-			saveRetrieveResult(result);
-			unzipRetrieveResult(result, "c:\\data\\sletmig\\sfdctool\\test");
-			Repository repo = obtainLocalGitRepo("c:\\data\\sletmig\\sfdctool\\test\\.git");
-			addAndCommitGit(repo, "unpackaged");
+			result = mc.checkRetrieveStatus(asyncResult.getId());
 		} catch (ConnectionException e) {
 			e.printStackTrace();
 			System.exit(1);
-		} catch (Exception e) {
-			e.printStackTrace();
-			System.exit(1);
 		}
-		return;
-	}
 
+		// Print out any warning messages
+		StringBuilder buf = new StringBuilder();
+		if (result.getMessages() != null) {
+			for (RetrieveMessage rm : result.getMessages()) {
+				buf.append(rm.getFileName() + " - " + rm.getProblem());
+			}
+		}
+		if (buf.length() > 0) {
+			System.out.println("Retrieve warnings:\n" + buf);
+		}
+
+		return result;
+	}
+	
 	/**
 	 * Helper method to copy from a readable channel to a writable channel,
 	 * using an in-memory buffer.
@@ -177,9 +177,9 @@ public class MetaDataGetter {
 		}
 	}
 
-	private static void saveRetrieveResult(RetrieveResult result) {
+	public static void saveRetrieveResultAsZip(RetrieveResult result, String targetDirectory, String targetFile) {
 		ByteArrayInputStream bais = new ByteArrayInputStream(result.getZipFile());
-		File resultFile = new File("SFDCTools.retrieveResults.zip");
+		File resultFile = new File(targetDirectory, targetFile);
 		try {
 			FileOutputStream os = new FileOutputStream(resultFile);
 			try {
@@ -195,6 +195,7 @@ public class MetaDataGetter {
 			System.exit(1);
 		}
 	}
+	
 	
 	private static void addAndCommitGit(Repository repo, String outputDirectory) {
 		Git git = new Git(repo);
@@ -233,7 +234,7 @@ public class MetaDataGetter {
 		return result;
 	}
 	
-	private static void unzipRetrieveResult(RetrieveResult result,
+	private static void saveRetrieveResultAsFiles(RetrieveResult result,
 			String outputDirectory) {
 
 		System.out.println("unzipping retrieved result...");
@@ -289,30 +290,30 @@ public class MetaDataGetter {
 		}
 	}
 
-	static public Map<String, FileProperties[]> getAllMetadataProperties(
-			MetadataConnection metadataConnection) {
-		System.out.println("Getting metadata...");
-		Map<String, FileProperties[]> result = new HashMap<String, FileProperties[]>();
-		try {
-			DescribeMetadataResult dmr = metadataConnection
-					.describeMetadata(ConnectUtil.API_VERSION);
-			ListMetadataQuery[] queries = new ListMetadataQuery[1];
-			for (int i = 0; i < dmr.getMetadataObjects().length; i++) {
-				queries[0] = new ListMetadataQuery();
-				queries[0].setType(dmr.getMetadataObjects()[i].getXmlName());
-
-				FileProperties[] queryResult = metadataConnection.listMetadata(
-						queries, ConnectUtil.API_VERSION);
-				result.put(dmr.getMetadataObjects()[i].getXmlName(),
-						queryResult);
-				System.out.print(".");
-			}
-			System.out.println(".");
-		} catch (ConnectionException e) {
-			e.printStackTrace();
-			System.exit(1);
-		}
-		return result;
-	}
+//	static public Map<String, FileProperties[]> getAllMetadataProperties(
+//			MetadataConnection metadataConnection) {
+//		System.out.println("Getting metadata...");
+//		Map<String, FileProperties[]> result = new HashMap<String, FileProperties[]>();
+//		try {
+//			DescribeMetadataResult dmr = metadataConnection
+//					.describeMetadata(ConnectUtil.API_VERSION);
+//			ListMetadataQuery[] queries = new ListMetadataQuery[1];
+//			for (int i = 0; i < dmr.getMetadataObjects().length; i++) {
+//				queries[0] = new ListMetadataQuery();
+//				queries[0].setType(dmr.getMetadataObjects()[i].getXmlName());
+//
+//				FileProperties[] queryResult = metadataConnection.listMetadata(
+//						queries, ConnectUtil.API_VERSION);
+//				result.put(dmr.getMetadataObjects()[i].getXmlName(),
+//						queryResult);
+//				System.out.print(".");
+//			}
+//			System.out.println(".");
+//		} catch (ConnectionException e) {
+//			e.printStackTrace();
+//			System.exit(1);
+//		}
+//		return result;
+//	}
 
 }
