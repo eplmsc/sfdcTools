@@ -7,8 +7,8 @@ import com.sforce.soap.metadata.FileProperties;
 public class Tester {
 
 	public static String userId = "martin.schroder@developer.org";
-	public static String token = "7NScvttwawVcbNaYT3EGqfUre";
 	public static String password = "vBay0001";
+	public static String token = "7NScvttwawVcbNaYT3EGqfUre";
 	public static String authenticationUrl = "https://login.salesforce.com";
 	public static double apiVersion = 30.0;
 	
@@ -21,7 +21,7 @@ public class Tester {
 	}
 
 	public static void testGetAllMetaDataProperties() {
-		ConnectUtil cu = new ConnectUtil(authenticationUrl, userId, token, password);
+		ConnectUtil cu = new ConnectUtil(authenticationUrl, userId, password+token);
 		cu.connect();
 		Map<String, FileProperties[]> metadataPropertiesMap = MetaDataGetter.getAllMetadataProperties(cu.getConnection());
 		ReportUtil.outputQualifiedPackageFormat(metadataPropertiesMap, System.out);

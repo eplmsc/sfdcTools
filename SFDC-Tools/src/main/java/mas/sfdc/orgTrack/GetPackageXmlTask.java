@@ -1,6 +1,5 @@
 package mas.sfdc.orgTrack;
 
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintStream;
 import java.util.Map;
@@ -12,21 +11,17 @@ import com.sforce.soap.metadata.FileProperties;
 
 public class GetPackageXmlTask extends Task {
 
-	private String userId;
+	private String username;
 	private String password;
-	private String token;
-	private String authenticationUrl;
-	private String targetDirName = ".";
+	private String serverurl = ConnectUtil.DEFAULT_SERVERURL;
+	private double apiVersion = ConnectUtil.DEFAULT_API_VERSION;
 	private String targetFileName = "package.xml";
-	private double apiVersion = 30.0;
 
 	@Override
 	public void execute() throws BuildException {
 		validateAttributes();
 		
-		String fullFileName = targetDirName + File.pathSeparator + targetFileName;
-		
-		ConnectUtil cu = new ConnectUtil(authenticationUrl, userId, token, password, apiVersion);
+		ConnectUtil cu = new ConnectUtil(serverurl, username, password, apiVersion);
 		cu.connect();
 		Map<String, FileProperties[]> metadataPropertiesMap = MetaDataGetter.getAllMetadataProperties(cu.getConnection());
 		PrintStream filePrintStream = null;
@@ -42,40 +37,27 @@ public class GetPackageXmlTask extends Task {
 
 	
 	private void validateAttributes() {
-		if (userId == null) {
+		if (username == null) {
 			throw new BuildException("You must set the userId attribute.");
 		}
 		if (password == null) {
 			throw new BuildException("You must set the password attribute.");
 		}
-		if (authenticationUrl == null) {
-			throw new BuildException("You must set the authenticationUrl attribute.");
-		}		
 	}
 
 
 	public void setUserId(String userId) {
-		this.userId = userId;
+		this.username = userId;
 	}
 	public void setPassword(String password) {
 		this.password = password;
 	}
-	public void setToken(String token) {
-		this.token = token;
-	}
 	public void setAuthenticationUrl(String authenticationUrl) {
-		this.authenticationUrl = authenticationUrl;
+		this.serverurl = authenticationUrl;
 	}
 	public void setApiVersion(double apiVersion) {
 		this.apiVersion = apiVersion;
 	}
-
-
-	public void setTargetDirName(String targetDirName) {
-		this.targetDirName = targetDirName;
-	}
-
-
 	public void setTargetFileName(String targetFileName) {
 		this.targetFileName = targetFileName;
 	}

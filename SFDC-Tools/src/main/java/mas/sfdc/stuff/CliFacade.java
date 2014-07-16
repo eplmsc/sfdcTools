@@ -1,7 +1,8 @@
 package mas.sfdc.stuff;
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
+
 import java.util.Map;
+
+import mas.sfdc.orgTrack.ConnectUtil;
 
 import org.apache.commons.cli.BasicParser;
 import org.apache.commons.cli.CommandLine;
@@ -9,178 +10,112 @@ import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 
-
 public class CliFacade {
 
-	public static final String OPT_HELP = "help"; 
-	public static final String OPT_USER = "user"; 
-	public static final String OPT_PASSWORD = "password"; 
-	public static final String OPT_TOKEN = "token"; 
-	public static final String OPT_URL = "url"; 
-	public static final String OPT_AFTER = "after"; 
-	public static final String OPT_BEFORE = "before"; 
-	public static final String OPT_PACKAGE = "package"; 
-	public static final String OPT_ENV = "env"; 
-	
-	public static final String ENV_USER = "SFCR_USER"; 
-	public static final String ENV_PASSWORD = "SFCR_PASSWORD"; 
-	public static final String ENV_TOKEN = "SFCR_TOKEN"; 
-	public static final String ENV_URL = "SFCR_URL"; 
-	public static final String ENV_AFTER = "SFCR_AFTER"; 
-	public static final String ENV_BEFORE = "SFCR_BEFORE"; 
+	public static final String OPT_HELP = "help";
+	public static final String OPT_USERNAME = "username";
+	public static final String OPT_PASSWORD = "password";
+	public static final String OPT_SERVERURL = "serverurl";
+	public static final String OPT_APIVERSION = "apiversion";
+	public static final String OPT_FILENAME = "filename";
+	public static final String OPT_ENV = "env";
+
+	public static final String ENV_USERNAME = "SFCR_USERNAME";
+	public static final String ENV_PASSWORD = "SFCR_PASSWORD";
+	public static final String ENV_SERVERURL = "SFCR_SERVERURL";
+	public static final String ENV_FILENAME = "SFCR_FILENAME";
+	public static final String ENV_APIVERSION = "SFCR_APIVERSION";
 
 	// arguments read from commandline or environment
-	private String userId;
+	private String username;
 	private String password;
-	private String token;
-	private String authenticationUrl;
-	private boolean packageOutput;
-	private Calendar beforeDate;
-	private Calendar afterDate;
+	private String filename = "package.xml";
+	private String serverurl = ConnectUtil.DEFAULT_SERVERURL;
+	private double apiVersion = ConnectUtil.DEFAULT_API_VERSION;
 
-	public static final String DATE_FORMAT_OUT = "yyyy-MM-dd HH:mm:ss";
-	public static final String DATE_FORMAT_IN = "yyyy-MM-dd#HH:mm:ss";
-	private SimpleDateFormat inputDateFormat = new SimpleDateFormat(DATE_FORMAT_IN);
-	private SimpleDateFormat outputDateFormat = new SimpleDateFormat(DATE_FORMAT_OUT);
-	
 	public void getCommandLine(String[] arguments) {
 
 		Options cliOptions = new Options();
 		cliOptions.addOption(OPT_HELP, true, "generates this message");
-		cliOptions.addOption(OPT_USER, true, "userId");
+		cliOptions.addOption(OPT_USERNAME, true, "userId");
 		cliOptions.addOption(OPT_PASSWORD, true, "password");
-		cliOptions.addOption(OPT_TOKEN, true, "security token");
-		cliOptions.addOption(OPT_URL, true, "authentication url");
-		cliOptions.addOption(OPT_AFTER, true, "after datetime");
-		cliOptions.addOption(OPT_BEFORE, true, "before datetime");
-		cliOptions.addOption(OPT_PACKAGE, false, "produce package outpout");
-		cliOptions.addOption(OPT_ENV, false, "read options from environment variables");
-		
+		cliOptions.addOption(OPT_SERVERURL, true,
+				"authentication url - optional");
+		cliOptions
+				.addOption(OPT_FILENAME, true, "filename to write - optional");
+		cliOptions.addOption(OPT_APIVERSION, true, "API version - optional");
+		cliOptions.addOption(OPT_ENV, false,
+				"read all parameters from environment variables - optional");
+
 		CommandLineParser parser = new BasicParser();
 		try {
 			CommandLine commandLine = parser.parse(cliOptions, arguments, true);
-			this.packageOutput = commandLine.hasOption(OPT_PACKAGE);
-			
+
 			if (commandLine.hasOption(OPT_ENV)) {
 				Map<String, String> envMap = System.getenv();
-				this.userId = envMap.get(ENV_USER);
+				this.username = envMap.get(ENV_USERNAME);
 				this.password = envMap.get(ENV_PASSWORD);
-				this.token = envMap.get(ENV_TOKEN);
-				this.authenticationUrl = envMap.get(ENV_URL);
-
-				String dateString = envMap.get(ENV_AFTER);
-				if (dateString != null) {
-					this.afterDate = Calendar.getInstance();
-					this.afterDate.setTime(inputDateFormat.parse(dateString));
-				}
-				dateString = envMap.get(ENV_BEFORE);
-				if (dateString != null) {
-					this.beforeDate = Calendar.getInstance();
-					this.beforeDate.setTime(inputDateFormat.parse(dateString));
-				}
+				String tmpFileName = envMap.get(ENV_FILENAME);
+				if (tmpFileName != null)
+					this.filename = tmpFileName;
+				String tmpServerurl = envMap.get(ENV_SERVERURL);
+				if (tmpServerurl != null)
+					this.serverurl = tmpServerurl;
+				String tmpApiVersion = envMap.get(ENV_APIVERSION);
+				if (tmpApiVersion != null)
+					this.apiVersion = Double.parseDouble(tmpApiVersion);
 			} else {
-				this.userId = commandLine.getOptionValue(OPT_USER);
+				this.username = commandLine.getOptionValue(OPT_USERNAME);
 				this.password = commandLine.getOptionValue(OPT_PASSWORD);
-				this.token = commandLine.getOptionValue(OPT_TOKEN);
-				this.authenticationUrl = commandLine.getOptionValue(OPT_URL);
-			
-				String dateString = commandLine.getOptionValue(OPT_AFTER);
-				if (dateString != null) {
-					this.afterDate = Calendar.getInstance();
-					this.afterDate.setTime(inputDateFormat.parse(dateString));
-				}
-				dateString = commandLine.getOptionValue(OPT_BEFORE);
-				if (dateString != null) {
-					this.beforeDate = Calendar.getInstance();
-					this.beforeDate.setTime(inputDateFormat.parse(dateString));
-				}
+				String tmpFileName = commandLine.getOptionValue(OPT_FILENAME);
+				if (tmpFileName != null)
+					this.filename = tmpFileName;
+				String tmpServerurl = commandLine.getOptionValue(OPT_SERVERURL);
+				if (tmpServerurl != null)
+					this.serverurl = tmpServerurl;
+				String tmpApiVersion = commandLine
+						.getOptionValue(OPT_APIVERSION);
+				if (tmpApiVersion != null)
+					this.apiVersion = Double.parseDouble(tmpApiVersion);
 			}
 		} catch (org.apache.commons.cli.ParseException e) {
 			e.printStackTrace();
 			System.exit(1);
-		} catch (java.text.ParseException e) {
-			e.printStackTrace();
-			System.exit(1);
 		}
 
-		if (this.userId == null) {
-			System.out.println("userId not specified.");
-			HelpFormatter helpFormatter = new HelpFormatter();
-			helpFormatter.printHelp( "SFCR", cliOptions );
+		if (this.username == null) {
+			printErrorAndHelp("username not specified.", cliOptions);
 			System.exit(1);
 		} else if (this.password == null) {
-			System.out.println("password not specified.");
-			HelpFormatter helpFormatter = new HelpFormatter();
-			helpFormatter.printHelp( "SFCR", cliOptions );
+			printErrorAndHelp("password not specified.", cliOptions);
 			System.exit(1);
-		} else if (this.authenticationUrl == null) {
-			System.out.println("url not specified.");
-			HelpFormatter helpFormatter = new HelpFormatter();
-			helpFormatter.printHelp( "SFCR", cliOptions );
-			System.exit(1);
-		} else if (this.afterDate == null) {
-			System.out.println("after date not specified.");
-			HelpFormatter helpFormatter = new HelpFormatter();
-			helpFormatter.printHelp( "SFCR", cliOptions );
-			System.exit(1);
-		} else if (this.token == null) {
-			System.out.println("token not specified.");
-		} 
+		}
 	}
 
-	public String getUserId() {
-		return userId;
+	private static void printErrorAndHelp(String message, Options cliOptions) {
+		System.out.println(message);
+		HelpFormatter helpFormatter = new HelpFormatter();
+		helpFormatter.printHelp("SFCR", cliOptions);
 	}
 
-	public void setUserId(String userId) {
-		this.userId = userId;
+	public String getUsername() {
+		return username;
 	}
 
 	public String getPassword() {
 		return password;
 	}
 
-	public void setPassword(String password) {
-		this.password = password;
+	public String getFilename() {
+		return filename;
 	}
 
-	public String getToken() {
-		return token;
+	public String getServerurl() {
+		return serverurl;
 	}
 
-	public void setToken(String token) {
-		this.token = token;
+	public double getApiVersion() {
+		return apiVersion;
 	}
 
-	public String getAuthenticationUrl() {
-		return authenticationUrl;
-	}
-
-	public void setAuthenticationUrl(String authenticationUrl) {
-		this.authenticationUrl = authenticationUrl;
-	}
-
-	public boolean isPackageOutput() {
-		return packageOutput;
-	}
-
-	public void setPackageOutput(boolean packageOutput) {
-		this.packageOutput = packageOutput;
-	}
-
-	public Calendar getBeforeDate() {
-		return beforeDate;
-	}
-
-	public void setBeforeDate(Calendar beforeDate) {
-		this.beforeDate = beforeDate;
-	}
-
-	public Calendar getAfterDate() {
-		return afterDate;
-	}
-
-	public void setAfterDate(Calendar afterDate) {
-		this.afterDate = afterDate;
-	}
 }

@@ -8,32 +8,30 @@ import com.sforce.ws.ConnectorConfig;
 
 public class ConnectUtil {
 
-	public static final double DEFAULT_API_VERSION = 28.0;
+	public static final String DEFAULT_SERVERURL = "https://login.salesforce.com";
+	public static final double DEFAULT_API_VERSION = 30.0;
 
-	private final String userId;
-	private final String token;
+	private final String username;
 	private final String password;
-	private final String authenticationUrl;
+	private final String serverurl;
 	private final double apiVersion;
 	private final String sfdcAuthPath;
 
 	private MetadataConnection connection;
 
-	public ConnectUtil(String authenticationUrl, String userId, String token,
-			String password) {
-		this(authenticationUrl, userId, token, password, DEFAULT_API_VERSION);
+	public ConnectUtil(String serverurl, String userId, String password) {
+		this(serverurl, userId, password, DEFAULT_API_VERSION);
 	}
 
-	public ConnectUtil(String authenticationUrl, String userId, String token,
-			String password, double apiVersion) {
+	public ConnectUtil(String serverurl, String userId, String password,
+			double apiVersion) {
 		super();
-		this.authenticationUrl = authenticationUrl;
-		this.userId = userId;
-		this.token = token;
+		this.serverurl = serverurl;
+		this.username = userId;
 		this.password = password;
 		this.apiVersion = apiVersion;
-		
-		this.sfdcAuthPath = "/services/Soap/u/"+String.valueOf(apiVersion);
+
+		this.sfdcAuthPath = "/services/Soap/u/" + String.valueOf(apiVersion);
 	}
 
 	public void connect() {
@@ -41,19 +39,16 @@ public class ConnectUtil {
 
 		this.connection = null;
 
-		String fullPassword = this.token != null ? this.password + this.token
-				: this.password;
-
 		ConnectorConfig partnerConfig = new ConnectorConfig();
-		partnerConfig.setAuthEndpoint(this.authenticationUrl + this.sfdcAuthPath);
-		partnerConfig.setUsername(this.userId);
-		partnerConfig.setPassword(fullPassword);
+		partnerConfig.setAuthEndpoint(this.serverurl + this.sfdcAuthPath);
+		partnerConfig.setUsername(this.username);
+		partnerConfig.setPassword(password);
 
 		PartnerConnection partnerConnection;
 		try {
 			partnerConnection = new PartnerConnection(partnerConfig);
-			LoginResult loginResult = partnerConnection.login(this.userId,
-					fullPassword);
+			LoginResult loginResult = partnerConnection.login(this.username,
+					this.password);
 
 			ConnectorConfig metadataConfig = new ConnectorConfig();
 			metadataConfig.setServiceEndpoint(loginResult
@@ -66,13 +61,9 @@ public class ConnectUtil {
 			System.exit(1);
 		}
 	}
-	
-	public String getUserId() {
-		return userId;
-	}
 
-	public String getToken() {
-		return token;
+	public String getUserId() {
+		return username;
 	}
 
 	public String getPassword() {
@@ -80,7 +71,7 @@ public class ConnectUtil {
 	}
 
 	public String getAuthenticationUrl() {
-		return authenticationUrl;
+		return serverurl;
 	}
 
 	public MetadataConnection getConnection() {

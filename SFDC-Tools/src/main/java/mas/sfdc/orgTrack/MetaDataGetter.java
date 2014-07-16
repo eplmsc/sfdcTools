@@ -31,15 +31,14 @@ import com.sforce.ws.ConnectionException;
 
 public class MetaDataGetter {
 
-    private static final int BUFFER_SIZE = 4096;
+	private static final int BUFFER_SIZE = 4096;
 	public static final long ONE_SECOND = 1000;
 	public static final int MAX_POLL_REQUEST = 7;
-	
-	public static RetrieveResult retrieveAllOrgMetaData(String authenticationUrl, String userId, String token,
-			String password) {
-		ConnectUtil connectUtil = new ConnectUtil(
-				authenticationUrl, userId,
-				token, password);
+
+	public static RetrieveResult retrieveAllOrgMetaData(
+			String authenticationUrl, String userId, String password) {
+		ConnectUtil connectUtil = new ConnectUtil(authenticationUrl, userId,
+				password);
 		connectUtil.connect();
 
 		RetrieveRequest request = getRetrieveEverythingRequest(connectUtil);
@@ -47,10 +46,12 @@ public class MetaDataGetter {
 
 		return result;
 	}
-	
+
 	/**
 	 * As simple call to describeMetadata()
-	 * @param metadataConnection a Connection. Must be logged in.
+	 * 
+	 * @param metadataConnection
+	 *            a Connection. Must be logged in.
 	 * @return The obtained DescribeMetadataResult
 	 */
 	static public DescribeMetadataResult describeMetadata(
@@ -58,7 +59,8 @@ public class MetaDataGetter {
 		System.out.println("Getting metadata description...");
 		DescribeMetadataResult dmr = null;
 		try {
-			dmr = metadataConnection.describeMetadata(ConnectUtil.DEFAULT_API_VERSION);
+			dmr = metadataConnection
+					.describeMetadata(ConnectUtil.DEFAULT_API_VERSION);
 		} catch (ConnectionException e) {
 			e.printStackTrace();
 			System.exit(1);
@@ -66,7 +68,8 @@ public class MetaDataGetter {
 		return dmr;
 	}
 
-	public static RetrieveRequest getRetrieveEverythingRequest(ConnectUtil connectUtil) {
+	public static RetrieveRequest getRetrieveEverythingRequest(
+			ConnectUtil connectUtil) {
 
 		System.out.println("Getting RetreiveRequest for all metadata...");
 		MetadataConnection mc = connectUtil.getConnection();
@@ -81,9 +84,11 @@ public class MetaDataGetter {
 		final String[] asterisk = new String[] { "*" };
 		ArrayList<PackageTypeMembers> packageTypeMemberList = new ArrayList<PackageTypeMembers>();
 		for (int i = 0; i < dmr.getMetadataObjects().length; i++) {
-			if (!"InstalledPackage".equalsIgnoreCase(dmr.getMetadataObjects()[i].getXmlName())) {
+			if (!"InstalledPackage"
+					.equalsIgnoreCase(dmr.getMetadataObjects()[i].getXmlName())) {
 				PackageTypeMembers packageTypeMembers = new PackageTypeMembers();
-				packageTypeMembers.setName(dmr.getMetadataObjects()[i].getXmlName());
+				packageTypeMembers.setName(dmr.getMetadataObjects()[i]
+						.getXmlName());
 				packageTypeMembers.setMembers(asterisk);
 				packageTypeMemberList.add(packageTypeMembers);
 			}
@@ -92,12 +97,13 @@ public class MetaDataGetter {
 		Package unpackaged = new Package();
 		unpackaged.setVersion(Double.toString(connectUtil.getApiVersion()));
 		unpackaged.setApiAccessLevel(APIAccessLevel.Unrestricted);
-		unpackaged.setTypes(packageTypeMemberList.toArray(new PackageTypeMembers[packageTypeMemberList.size()]));
+		unpackaged.setTypes(packageTypeMemberList
+				.toArray(new PackageTypeMembers[packageTypeMemberList.size()]));
 
 		RetrieveRequest request = new RetrieveRequest();
 		request.setUnpackaged(unpackaged);
 		request.setApiVersion(connectUtil.getApiVersion());
-		
+
 		return request;
 	}
 
@@ -161,7 +167,7 @@ public class MetaDataGetter {
 
 		return result;
 	}
-	
+
 	/**
 	 * Helper method to copy from a readable channel to a writable channel,
 	 * using an in-memory buffer.
@@ -179,8 +185,10 @@ public class MetaDataGetter {
 		}
 	}
 
-	public static void saveRetrieveResultAsZip(RetrieveResult result, String targetDirectory, String targetFile) {
-		ByteArrayInputStream bais = new ByteArrayInputStream(result.getZipFile());
+	public static void saveRetrieveResultAsZip(RetrieveResult result,
+			String targetDirectory, String targetFile) {
+		ByteArrayInputStream bais = new ByteArrayInputStream(
+				result.getZipFile());
 		File resultFile = new File(targetDirectory, targetFile);
 		try {
 			FileOutputStream os = new FileOutputStream(resultFile);
@@ -188,7 +196,8 @@ public class MetaDataGetter {
 				ReadableByteChannel src = Channels.newChannel(bais);
 				FileChannel dest = os.getChannel();
 				copy(src, dest);
-				System.out.println("Result written to "	+ resultFile.getAbsolutePath());
+				System.out.println("Result written to "
+						+ resultFile.getAbsolutePath());
 			} finally {
 				os.close();
 			}
@@ -197,8 +206,7 @@ public class MetaDataGetter {
 			System.exit(1);
 		}
 	}
-	
-	
+
 	private static void saveRetrieveResultAsFiles(RetrieveResult result,
 			String outputDirectory) {
 
@@ -257,6 +265,7 @@ public class MetaDataGetter {
 
 	/**
 	 * As simple call to describeMetaData followed by listMetaData
+	 * 
 	 * @param metadataConnection
 	 * @return A Map of metadata types and members
 	 */
