@@ -9,6 +9,9 @@ import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -23,6 +26,8 @@ import com.sforce.soap.metadata.APIAccessLevel;
 import com.sforce.soap.metadata.AsyncRequestState;
 import com.sforce.soap.metadata.AsyncResult;
 import com.sforce.soap.metadata.DescribeMetadataResult;
+import com.sforce.soap.metadata.FileProperties;
+import com.sforce.soap.metadata.ListMetadataQuery;
 import com.sforce.soap.metadata.MetadataConnection;
 import com.sforce.soap.metadata.Package;
 import com.sforce.soap.metadata.PackageTypeMembers;
@@ -50,19 +55,23 @@ public class MetaDataGetter {
 		return result;
 	}
 	
-	
-//	static public DescribeMetadataResult describeMetadata(
-//			MetadataConnection metadataConnection) {
-//		System.out.println("Getting metadata description...");
-//		DescribeMetadataResult dmr = null;
-//		try {
-//			dmr = metadataConnection.describeMetadata(ConnectUtil.API_VERSION);
-//		} catch (ConnectionException e) {
-//			e.printStackTrace();
-//			System.exit(1);
-//		}
-//		return dmr;
-//	}
+	/**
+	 * As simple call to describeMetadata()
+	 * @param metadataConnection a Connection. Must be logged in.
+	 * @return The obtained DescribeMetadataResult
+	 */
+	static public DescribeMetadataResult describeMetadata(
+			MetadataConnection metadataConnection) {
+		System.out.println("Getting metadata description...");
+		DescribeMetadataResult dmr = null;
+		try {
+			dmr = metadataConnection.describeMetadata(ConnectUtil.DEFAULT_API_VERSION);
+		} catch (ConnectionException e) {
+			e.printStackTrace();
+			System.exit(1);
+		}
+		return dmr;
+	}
 
 	public static RetrieveRequest getRetrieveEverythingRequest(ConnectUtil connectUtil) {
 
@@ -77,20 +86,20 @@ public class MetaDataGetter {
 		}
 
 		final String[] asterisk = new String[] { "*" };
-		PackageTypeMembers[] ptmArray = new PackageTypeMembers[dmr
-				.getMetadataObjects().length];
+		ArrayList<PackageTypeMembers> packageTypeMemberList = new ArrayList<PackageTypeMembers>();
+		for (int i = 0; i < dmr.getMetadataObjects().length; i++) {
+			if (!"InstalledPackage".equalsIgnoreCase(dmr.getMetadataObjects()[i].getXmlName())) {
+				PackageTypeMembers packageTypeMembers = new PackageTypeMembers();
+				packageTypeMembers.setName(dmr.getMetadataObjects()[i].getXmlName());
+				packageTypeMembers.setMembers(asterisk);
+				packageTypeMemberList.add(packageTypeMembers);
+			}
+		}
+
 		Package unpackaged = new Package();
 		unpackaged.setVersion(Double.toString(connectUtil.getApiVersion()));
 		unpackaged.setApiAccessLevel(APIAccessLevel.Unrestricted);
-		unpackaged.setTypes(ptmArray);
-
-		for (int i = 0; i < dmr.getMetadataObjects().length; i++) {
-			if (!"InstalledPackage".equalsIgnoreCase(dmr.getMetadataObjects()[i].getXmlName())) {
-				ptmArray[i] = new PackageTypeMembers();
-				ptmArray[i].setMembers(asterisk);
-				ptmArray[i].setName(dmr.getMetadataObjects()[i].getXmlName());
-			}
-		}
+		unpackaged.setTypes(packageTypeMemberList.toArray(new PackageTypeMembers[packageTypeMemberList.size()]));
 
 		RetrieveRequest request = new RetrieveRequest();
 		request.setUnpackaged(unpackaged);
@@ -290,30 +299,35 @@ public class MetaDataGetter {
 		}
 	}
 
-//	static public Map<String, FileProperties[]> getAllMetadataProperties(
-//			MetadataConnection metadataConnection) {
-//		System.out.println("Getting metadata...");
-//		Map<String, FileProperties[]> result = new HashMap<String, FileProperties[]>();
-//		try {
-//			DescribeMetadataResult dmr = metadataConnection
-//					.describeMetadata(ConnectUtil.API_VERSION);
-//			ListMetadataQuery[] queries = new ListMetadataQuery[1];
-//			for (int i = 0; i < dmr.getMetadataObjects().length; i++) {
-//				queries[0] = new ListMetadataQuery();
-//				queries[0].setType(dmr.getMetadataObjects()[i].getXmlName());
-//
-//				FileProperties[] queryResult = metadataConnection.listMetadata(
-//						queries, ConnectUtil.API_VERSION);
-//				result.put(dmr.getMetadataObjects()[i].getXmlName(),
-//						queryResult);
-//				System.out.print(".");
-//			}
-//			System.out.println(".");
-//		} catch (ConnectionException e) {
-//			e.printStackTrace();
-//			System.exit(1);
-//		}
-//		return result;
-//	}
+	/**
+	 * As simple call to describeMetaData followed by listMetaData
+	 * @param metadataConnection
+	 * @return A Map of metadata types and members
+	 */
+	static public Map<String, FileProperties[]> getAllMetadataProperties(
+			MetadataConnection metadataConnection) {
+		System.out.println("Getting metadata...");
+		Map<String, FileProperties[]> result = new HashMap<String, FileProperties[]>();
+		try {
+			DescribeMetadataResult dmr = metadataConnection
+					.describeMetadata(ConnectUtil.DEFAULT_API_VERSION);
+			ListMetadataQuery[] queries = new ListMetadataQuery[1];
+			for (int i = 0; i < dmr.getMetadataObjects().length; i++) {
+				queries[0] = new ListMetadataQuery();
+				queries[0].setType(dmr.getMetadataObjects()[i].getXmlName());
+
+				FileProperties[] queryResult = metadataConnection.listMetadata(
+						queries, ConnectUtil.DEFAULT_API_VERSION);
+				result.put(dmr.getMetadataObjects()[i].getXmlName(),
+						queryResult);
+				System.out.print(".");
+			}
+			System.out.println(".");
+		} catch (ConnectionException e) {
+			e.printStackTrace();
+			System.exit(1);
+		}
+		return result;
+	}
 
 }

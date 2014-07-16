@@ -8,7 +8,7 @@ import com.sforce.ws.ConnectorConfig;
 
 public class ConnectUtil {
 
-	private static final String DEFAULT_API_VERSION = "28.0";
+	public static final double DEFAULT_API_VERSION = 28.0;
 
 	private final String userId;
 	private final String token;
@@ -25,15 +25,15 @@ public class ConnectUtil {
 	}
 
 	public ConnectUtil(String authenticationUrl, String userId, String token,
-			String password, String apiVersion) {
+			String password, double apiVersion) {
 		super();
 		this.authenticationUrl = authenticationUrl;
 		this.userId = userId;
 		this.token = token;
 		this.password = password;
-		this.apiVersion = Double.parseDouble(apiVersion);
+		this.apiVersion = apiVersion;
 		
-		this.sfdcAuthPath = "/services/Soap/u/"+apiVersion;
+		this.sfdcAuthPath = "/services/Soap/u/"+String.valueOf(apiVersion);
 	}
 
 	public void connect() {
