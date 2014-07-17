@@ -46,19 +46,28 @@ public class GetPackageXmlTask extends Task {
 	}
 
 
-	public void setUserId(String userId) {
-		this.username = userId;
+	public void setUsername(String username) {
+		this.username = username;
 	}
+
+
 	public void setPassword(String password) {
 		this.password = password;
 	}
-	public void setAuthenticationUrl(String authenticationUrl) {
-		this.serverurl = authenticationUrl;
+
+
+	public void setServerurl(String serverurl) {
+		this.serverurl = serverurl;
 	}
+
+
 	public void setApiVersion(double apiVersion) {
 		this.apiVersion = apiVersion;
 	}
+
+
 	public void setTargetFileName(String targetFileName) {
 		this.targetFileName = targetFileName;
 	}
+
 }
